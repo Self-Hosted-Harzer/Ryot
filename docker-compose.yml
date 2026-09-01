@@ -23,6 +23,30 @@ services:
       - FRONTEND_URL=https://ryot.your-domain.com # IP address is fine too
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres # REQUIRED
       - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # REQUIRED: set to a long random string
+    labels:
+      - "traefik.enable=true"
+
+      # Routing / Subdomain
+      - "traefik.http.routers.vue-frontend.rule=Host(`vue-frontend.micedric.dpdns.org`)"
+      - "traefik.http.routers.vue-frontend.entrypoints=websecure"
+      - "traefik.http.routers.vue-frontend.tls.certresolver=myresolver"
+      - "traefik.http.routers.vue-frontend.middlewares=vue-frontend-sablier"
+      - "traefik.http.services.vue-frontend.loadbalancer.server.port=8080"
+
+      # Sablier: Container darf trotz Stopp im Routing bleiben (Traefik >= v3.6 nötig)
+      - "traefik.docker.allownonrunning=true"
+
+      # Sablier-Gruppierung
+      - "sablier.enable=true"
+      - "sablier.group=vue-frontend"
+
+      # Sablier-Middleware-Konfiguration (Traefik-Plugin)
+      - "traefik.http.middlewares.vue-frontend-sablier.plugin.sablier.group=vue-frontend"
+      - "traefik.http.middlewares.vue-frontend-sablier.plugin.sablier.sablierUrl=http://sablier:10000"
+      - "traefik.http.middlewares.vue-frontend-sablier.plugin.sablier.sessionDuration=15m"
+      - "traefik.http.middlewares.vue-frontend-sablier.plugin.sablier.dynamic.displayName=Vue Frontend"
+      - "traefik.http.middlewares.vue-frontend-sablier.plugin.sablier.dynamic.theme=hacker-terminal"
+      - "traefik.http.middlewares.vue-frontend-sablier.plugin.sablier.dynamic.refreshFrequency=3s"
 
 volumes:
   postgres_storage:
