@@ -1,4 +1,5 @@
 postgres_storage
 /postgres_storage
-
+lyftr_data
+/lyftr_data
 .env

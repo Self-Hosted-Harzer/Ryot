@@ -1,61 +1,61 @@
 services:
-  ryot-db:
-    image: postgres:18-alpine # at-least version 15 is required
-    restart: unless-stopped
-    container_name: ryot-db
-    networks:
-      - mynet
+  lyftr-backend:
+    image: cwlumm/lyftr-backend:latest
+    container_name: lyftr-backend
     volumes:
-      - ./postgres_storage:/var/lib/postgresql
-    environment:
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_DB=${POSTGRES_DATABASE}
-    labels:
-      # Sablier-Gruppierung
-      - "sablier.enable=true"
-      - "sablier.group=ryot"
-
-
-  ryot:
-    image: ignisda/ryot:v10 # or ghcr.io/ignisda/ryot:v10
-    pull_policy: always
-    container_name: ryot
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    networks:
+      - ./lyftr_data/:/app/data:rw
+    networks: 
       - mynet
     environment:
-      - TZ=Europe/Berlin
-      - FRONTEND_URL=https://ryot.micedric.dpdns.org
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@ryot-db:5432/${POSTGRES_DATABASE}
-      - SERVER_ADMIN_ACCESS_TOKEN=${TOKEN}
-      - USERS_ALLOW_REGISTRATION=false
+       ENV: production
+       PORT: 3008
+       JWT_SECRET: ${JWT}
+       CORS_ORIGIN: https://lyftr.micedric.dpdns.org:9001
+       DB_TYPE: sqlite
+       DB_PATH: /app/data/lyftr.db
+       REGISTRATION: first-user
+    ports:
+      - 3008:3008
+    restart: unless-stopped
+    labels:
+      - "sablier.enable=true"
+      - "sablier.group=lyftr"
+
+  lyftr-frontend:
+    image: cwlumm/lyftr-frontend:latest
+    container_name: lyftr-frontend
+    depends_on:
+      - lyftr-backend
+    restart: unless-stopped
+    environment:
+      - BACKEND_ORIGIN=lyftr-backend:3008  
+    networks:
+      - mynet
     labels:
       - "traefik.enable=true"
 
       # Routing / Subdomain
-      - "traefik.http.routers.ryot.rule=Host(`ryot.micedric.dpdns.org`)"
-      - "traefik.http.routers.ryot.entrypoints=websecure"
-      - "traefik.http.routers.ryot.tls.certresolver=myresolver"
-      - "traefik.http.routers.ryot.middlewares=ryot-sablier"
-      - "traefik.http.services.ryot.loadbalancer.server.port=8000"
+      - "traefik.http.routers.lyftr.rule=Host(`lyftr.micedric.dpdns.org`)"
+      - "traefik.http.routers.lyftr.entrypoints=websecure"
+      - "traefik.http.routers.lyftr.tls.certresolver=myresolver"
+      - "traefik.http.routers.lyftr.middlewares=lyftr-sablier"
+      - "traefik.http.services.lyftr.loadbalancer.server.port=80"
 
-      # Sablier: Container darf trotz Stopp im Routing bleiben (Traefik >= v3.6 nötig)
+      # Sablier: Container darf trotz Stopp im Routing bleiben
       - "traefik.docker.allownonrunning=true"
 
       # Sablier-Gruppierung
       - "sablier.enable=true"
-      - "sablier.group=ryot"
+      - "sablier.group=lyftr"
 
-      # Sablier-Middleware-Konfiguration (Traefik-Plugin)
-      - "traefik.http.middlewares.ryot-sablier.plugin.sablier.group=ryot"
-      - "traefik.http.middlewares.ryot-sablier.plugin.sablier.sablierUrl=http://sablier:10000"
-      - "traefik.http.middlewares.ryot-sablier.plugin.sablier.sessionDuration=90m"
-      - "traefik.http.middlewares.ryot-sablier.plugin.sablier.dynamic.displayName=Ryot"
-      - "traefik.http.middlewares.ryot-sablier.plugin.sablier.dynamic.theme=hacker-terminal"
-      - "traefik.http.middlewares.ryot-sablier.plugin.sablier.dynamic.refreshFrequency=3s"
+      # Sablier-Middleware-Konfiguration (alles unter demselben Namen!)
+      - "traefik.http.middlewares.lyftr-sablier.plugin.sablier.group=lyftr"
+      - "traefik.http.middlewares.lyftr-sablier.plugin.sablier.sablierUrl=http://sablier:10000"
+      - "traefik.http.middlewares.lyftr-sablier.plugin.sablier.sessionDuration=50m"
+      - "traefik.http.middlewares.lyftr-sablier.plugin.sablier.dynamic.displayName=Lyftr"
+      - "traefik.http.middlewares.lyftr-sablier.plugin.sablier.dynamic.theme=ghost"
+      - "traefik.http.middlewares.lyftr-sablier.plugin.sablier.dynamic.refreshFrequency=3s"
+
 
 networks:
   mynet:
